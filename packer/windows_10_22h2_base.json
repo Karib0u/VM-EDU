@@ -1,30 +1,70 @@
 {
     "builders": [
         {
+            "type": "virtualbox-iso",
             "boot_command": "",
-            "boot_wait": "6m",
+            "boot_wait": "{{user `boot_wait`}}",
             "communicator": "winrm",
-            "cpus": 2,
+            "cpus": "{{user `cpus`}}",
             "disk_size": "{{user `disk_size`}}",
             "floppy_files": [
                 "{{user `autounattend`}}",
                 "./scripts/fixnetwork.ps1",
                 "./scripts/disable-winrm.ps1",
                 "./scripts/enable-winrm.ps1"
-
             ],
-            "guest_additions_mode": "disable",
+            "guest_additions_mode": "{{user `guest_additions_mode`}}",
             "guest_os_type": "Windows10_64",
             "headless": "{{user `headless`}}",
             "iso_checksum": "{{user `iso_checksum`}}",
             "iso_url": "{{user `iso_url`}}",
-            "memory": 8192,
-            "shutdown_command": "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\"",
-            "type": "virtualbox-iso",
+            "memory": "{{user `memory`}}",
+            "shutdown_command": "{{user `shutdown_command`}}",
             "vm_name": "{{user `vm_name`}}",
             "winrm_password": "{{user `winrm_password`}}",
             "winrm_timeout": "{{user `winrm_timeout`}}",
-            "winrm_username": "{{user `winrm_username`}}"
+            "winrm_username": "{{user `winrm_username`}}",
+            "vboxmanage": [
+                ["modifyvm", "{{.Name}}", "--vram", "128"],
+                ["modifyvm", "{{.Name}}", "--graphicscontroller", "vboxsvga"],
+                ["modifyvm", "{{.Name}}", "--accelerate3d", "on"],
+                ["modifyvm", "{{.Name}}", "--clipboard", "bidirectional"],
+                ["modifyvm", "{{.Name}}", "--draganddrop", "hosttoguest"],
+                ["setextradata", "{{.Name}}", "GUI/LastGuestSizeHint", "auto"]
+            ]
+        },
+        {
+            "type": "vmware-iso",
+            "boot_command": "",
+            "boot_wait": "5m",
+            "communicator": "winrm",
+            "cpus": 4,
+            "disk_size": "{{user `disk_size`}}",
+            "floppy_files": [
+                "{{user `autounattend`}}",
+                "./scripts/fixnetwork.ps1",
+                "./scripts/disable-winrm.ps1",
+                "./scripts/enable-winrm.ps1"
+            ],
+            "guest_os_type": "windows9-64",
+            "headless": "{{user `headless`}}",
+            "iso_checksum": "{{user `iso_checksum`}}",
+            "iso_url": "{{user `iso_url`}}",
+            "memory": "{{user `memory`}}",
+            "shutdown_command": "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\"",
+            "vm_name": "{{user `vm_name`}}",
+            "winrm_password": "{{user `winrm_password`}}",
+            "winrm_timeout": "{{user `winrm_timeout`}}",
+            "winrm_username": "{{user `winrm_username`}}",
+            "vmx_data": {
+                "memsize": "{{user `memory`}}",
+                "numvcpus": "{{user `cpus`}}",
+                "svga.vramSize": "128",
+                "virtualHW.version": "19",
+                "scsi0.virtualDev": "lsisas1068",
+                "mks.enable3d": "TRUE",
+                "svga.autodetect": "TRUE"
+            }
         }
     ],
     "post-processors": [
@@ -32,7 +72,7 @@
             "keep_input_artifact": true,
             "output": "windows_10_analyst_{{.Provider}}.box",
             "type": "vagrant",
-            "vagrantfile_template": "./configs/vagrantfile-windows_10_analyst.template"
+            "vagrantfile_template": "../vagrant/dfir/Vagrantfile"
         }
     ],
     "provisioners": [
@@ -72,6 +112,8 @@
         {
             "type": "powershell",
             "inline": [
+                "$tempDir = 'C:\\Temp'",
+                "if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir }",
                 "$url = 'https://gist.githubusercontent.com/garoto/1614f24016ea11112b7b59ca1fcaa6bd/raw/c96e74b4515a46cbbda7a4d8967d76d7fbb2cc67/disable-defender.ps1'",
                 "$output = 'C:\\Temp\\disable-defender.ps1'",
                 "Invoke-WebRequest -Uri $url -OutFile $output",
@@ -97,11 +139,16 @@
         "headless": "false",
         "iso_url": "https://software-static.download.prss.microsoft.com/dbazure/988969d5-f34g-4e03-ac9d-1f9786c66750/19045.2006.220908-0225.22h2_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_fr-fr.iso",
         "iso_checksum": "sha256:dd15f7e81fb8e0f8bd71d9e91683ed9e59de7458aef87f4b2377a00a360a0d23",
-        "restart_timeout": "5m",
+        "restart_timeout": "3m",
         "vhv_enable": "false",
         "vm_name": "Windows10_Analyst",
         "winrm_username": "analyst",
         "winrm_password": "analyst",
-        "winrm_timeout": "6h"
+        "winrm_timeout": "40m",
+        "cpus": "4",
+        "memory": "8192",
+        "guest_additions_mode": "disable",
+        "shutdown_command": "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\"",
+        "boot_wait": "3m"
     }
 }

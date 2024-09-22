@@ -1,48 +1,71 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-Vagrant.require_version ">= 1.6.2"
 
 Vagrant.configure("2") do |config|
-    config.vm.define "vagrant-windows_10_analyst_virtualbox"
-    config.vm.box = "windows_10_analyst"
-    config.vm.communicator = "winrm"
+  config.vm.define "dfir-windows-10" do |dfir|
+    dfir.vm.box = "windows_10_analyst"
+    dfir.vm.communicator = "winrm"
 
     # Admin user name and password
-    config.winrm.username = "analyst"
-    config.winrm.password = "analyst"
+    dfir.winrm.username = "analyst"
+    dfir.winrm.password = "analyst"
 
-    config.vm.guest = :windows
-    config.windows.halt_timeout = 15
+    dfir.vm.guest = :windows
+    dfir.windows.halt_timeout = 15
 
-    config.vm.network :forwarded_port, guest: 3389, host: 3389, id: "rdp", auto_correct: true
+    dfir.vm.network :forwarded_port, guest: 3389, host: 3389, id: "rdp", auto_correct: true
 
-    config.vm.provider :virtualbox do |v, override|
-        #v.gui = true
-        v.customize ["modifyvm", :id, "--memory", 2048]
-        v.customize ["modifyvm", :id, "--cpus", 2]
-        v.customize ["modifyvm", :id, "--vram", 128]
-        v.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
-        v.customize ["setextradata", "global", "GUI/SuppressMessages", "all" ]
-        v.customize ["modifyvm", :id, "--accelerate3d", "on"]
+    dfir.vm.provider :vmware_desktop do |v, override|
+      override.vm.define "dfir-windows_10_vmware"
+      override.vm.box = "windows_10_analyst_vmware.box"
+      v.vmx["displayName"] = "DFIR Windows 10"
+      v.vmx["memsize"] = "4096"
+      v.vmx["numvcpus"] = "2"
+      v.vmx["cpuid.coresPerSocket"] = "1"
+      v.vmx["ethernet0.virtualDev"] = "vmxnet3"
+      v.vmx["RemoteDisplay.vnc.enabled"] = "false"
+      v.vmx["RemoteDisplay.vnc.port"] = "5900"
+      v.vmx["scsi0.virtualDev"] = "lsisas1068"
+      v.gui = true
     end
 
-    config.vm.provision "shell", inline: <<-SHELL
-        choco install 7zip.install --pre -y
-        choco install git.install -y
-        #choco install libreoffice-fresh -y
-        choco install vscode -y
-        choco install sysinternals -y
-        choco install googlechrome -y
-        choco install wireshark -y
-        choco install microsoft-windows-terminal -y
+    dfir.vm.provider :virtualbox do |v, override|
+      override.vm.define "dfir-windows_10_virtualbox"
+      override.vm.box = "windows_10_analyst_virtualbox.box"
+      v.name = "DFIR Windows 10"
+      v.customize ["modifyvm", :id, "--memory", 2048]
+      v.customize ["modifyvm", :id, "--cpus", 2]
+      v.customize ["modifyvm", :id, "--vram", 128]
+      v.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      v.customize ["modifyvm", :id, "--graphicscontroller", "vboxsvga"]
+      v.customize ["modifyvm", :id, "--accelerate3d", "on"]
+      v.customize ["modifyvm", :id, "--draganddrop", "hosttoguest"]
+      v.customize ["setextradata", :id, "GUI/LastGuestSizeHint", "auto"]
+      v.customize ["setextradata", "global", "GUI/SuppressMessages", "all"]
+    end
+
+    dfir.vm.provision "shell", inline: <<-SHELL
+      choco install 7zip.install --pre -y
+      choco install git.install -y
+      choco install vscode -y
+      choco install sysinternals -y
+      choco install googlechrome -y
+      choco install wireshark -y
+      choco install microsoft-windows-terminal -y
+      choco install ezviewer -y
+      choco install timelineexplorer -y
+      choco install registryexplorer -y
+      choco install volatility3 -y
+      choco install python -y
     SHELL
 
-    config.vm.provision "shell", path: "../scripts/memprocfs.ps1", privileged: true
-    config.vm.provision "shell", path: "../scripts/zircolite.ps1", privileged: false
-    config.vm.provision "shell", path: "../scripts/hayabusa.ps1", privileged: false
-    config.vm.provision "shell", path: "../scripts/velociraptor.ps1", privileged: false
-    config.vm.provision "shell", path: "../scripts/winpmem.ps1", privileged: false
-    config.vm.provision "shell", path: "../scripts/ftk-imager.ps1"
-
+    dfir.vm.provision "shell", path: "../scripts/memprocfs.ps1", privileged: true
+    dfir.vm.provision "shell", path: "../scripts/memprocfsanalyzer.ps1", privileged: true
+    dfir.vm.provision "shell", path: "../scripts/zircolite.ps1", privileged: false
+    dfir.vm.provision "shell", path: "../scripts/hayabusa.ps1", privileged: false
+    dfir.vm.provision "shell", path: "../scripts/velociraptor.ps1", privileged: false
+    dfir.vm.provision "shell", path: "../scripts/winpmem.ps1", privileged: false
+    dfir.vm.provision "shell", path: "../scripts/ftk-imager.ps1"
+  end
 end

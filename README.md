@@ -1,61 +1,127 @@
 # VM-EDU
 
-VM-EDU is a Packer and Vagrant VM factory for two courses: Digital Forensics and Incident Response (DFIR) & Malware Analysis. This project automates the process of creating and configuring virtual machines for educational purposes.
+VM-EDU is a Packer and Vagrant VM factory for two courses: Digital Forensics and Incident Response (DFIR) & Malware Analysis. This project automates the process of creating and configuring virtual machines for educational purposes, supporting either VMware or VirtualBox.
 
 ## Directory Structure
 
 ```
-.
+VM-EDU/
 ├── README.md
-├── packer
-│   ├── configs
-│   └── scripts
-│   └── windows_10_22h2_base.json
-└── vagrant
-    ├── dfir
-    ├── malware_analysis
-    └── scripts
+├── LICENSE
+├── .gitignore
+├── shared/
+│   └── Vagrantfile.base
+├── packer/
+│   ├── packer.exe
+│   ├── windows_10_22h2_base.json
+│   ├── configs/
+│   │   └── Autounattend.xml
+│   └── scripts/
+│       └── ... (various scripts)
+├── vagrant/
+│   ├── dfir/
+│   │   └── Vagrantfile
+│   └── malware_analysis/
+│       └── Vagrantfile
+└── scripts/
+    └── ... (various scripts)
 ```
+
+### Shared
+
+- `Vagrantfile.base`: Contains common Vagrant configurations shared between Packer, DFIR, and malware analysis environments.
 
 ### Packer
 
 - `windows_10_22h2_base.json`: Packer template for building the Windows 10 VM.
-- `configs`: Contains the Autounattend.xml for unattended installations and a template for customizing the Vagrant environment.
-- `scripts`: Scripts for configuring the Windows environment during the Packer build process.
+- `configs/`: Contains the Autounattend.xml for unattended installations.
+- `scripts/`: Scripts for configuring the Windows environment during the Packer build process.
 
 ### Vagrant
 
-- `dfir` & `malware_analysis`: Directories containing Vagrantfiles for setting up environments specific to DFIR and malware analysis.
-- `scripts`: Provisioning scripts used by Vagrant to install and configure tools in the VMs.
+- `dfir/` & `malware_analysis/`: Directories containing specialized Vagrantfiles for setting up environments specific to DFIR and malware analysis.
 
-## Prerequisites
+### Scripts
 
-- [Packer](https://www.packer.io/downloads)
-- [Vagrant](https://www.vagrantup.com/downloads)
-- [VirtualBox](https://www.virtualbox.org/wiki/Downloads) (or any other provider supported by Vagrant and Packer)
+- Various scripts used by Vagrant to install and configure tools in the VMs.
 
 ## Setup
 
 1. Clone this repository to your local machine.
-2. Navigate to the `packer` directory and build the base Windows 10 22H2 image with Packer:
-   ```
+
+2. Choose your virtualization platform: VMware or VirtualBox. You'll use this choice throughout the setup process.
+
+3. Install Packer plugins:
+   Navigate to the `packer` directory and run:
+   ```bash
    cd packer
-   packer build windows_10_22h2_base.json
+   packer plugins install github.com/hashicorp/vagrant
    ```
-3. After the build is complete, navigate to the `vagrant` directory and add the generated box to Vagrant:
+   Then, based on your chosen platform:
+   
+   For VirtualBox:
+   ```bash
+   packer plugins install github.com/hashicorp/virtualbox
    ```
-   cd ../vagrant
-   vagrant box add --name windows_10_analyst ../packer/windows_10_analyst_virtualbox.box
+   For VMware:
+   ```bash
+   packer plugins install github.com/hashicorp/vmware
    ```
-4. Navigate to either the `dfir` or `malware_analysis` directory and start the Vagrant environment:
+
+4. Build the base Windows 10 22H2 image with Packer:
+   
+   For VirtualBox:
+   ```bash
+   packer build -only=virtualbox-iso windows_10_22h2_base.json
    ```
-   cd dfir
-   vagrant up
+   For VMware:
+   ```bash
+   packer build -only=vmware-iso windows_10_22h2_base.json
+   ```
+
+5. Add the generated box to Vagrant:
+   
+   For VirtualBox:
+   ```bash
+   vagrant box add --name windows_10_analyst_virtualbox windows_10_analyst_virtualbox.box
+   ```
+   For VMware:
+   Install the binary https://developer.hashicorp.com/vagrant/install/vmware
+   ```bash
+   vagrant plugin install vagrant-vmware-desktop
+   vagrant box add --name windows_10_analyst_vmware windows_10_analyst_vmware.box
+   ```
+
+6. Start a DFIR environment:
+   
+   For VirtualBox:
+   ```bash
+   cd ../vagrant/dfir
+   vagrant up --provider=virtualbox
+   ```
+   For VMware:
+   ```bash
+   cd ../vagrant/dfir
+   vagrant up --provider=vmware_desktop
+   ```
+
+   Or for a malware analysis environment:
+   
+   For VirtualBox:
+   ```bash
+   cd ../vagrant/malware_analysis
+   vagrant up --provider=virtualbox
+   ```
+   For VMware:
+   ```bash
+   cd ../vagrant/malware_analysis
+   vagrant up --provider=vmware_desktop
    ```
 
 ## Usage
 
-After setting up the Vagrant environment, you can access the VMs via VirtualBox or any other VM provider you've used. The environments come pre-configured with tools and settings suitable for DFIR or malware analysis.
+After setup, access the VMs via your chosen virtualization platform (VirtualBox or VMware). The environments are pre-configured with tools for DFIR or malware analysis.
+
 
 ## Contributing
 

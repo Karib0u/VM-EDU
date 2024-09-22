@@ -1,23 +1,80 @@
 # Define the Desktop path
 $desktopPath = [System.Environment]::GetFolderPath("Desktop")
 
-# Define Hayabusa download URL
-$hayabusaUrl = "https://github.com/Yamato-Security/hayabusa/releases/download/v2.12.0/hayabusa-2.12.0-windows-64-bit.zip"
-$hayabusaPath = "$desktopPath\hayabusa-2.12.0-windows-64-bit.zip"
+# Define Hayabusa GitHub repository information
+$owner = "Yamato-Security"
+$repo = "hayabusa"
+$apiBaseUrl = "https://api.github.com/repos/$owner/$repo"
 
-# Download Hayabusa to the Desktop
-Invoke-WebRequest -Uri $hayabusaUrl -OutFile $hayabusaPath
+# Function to get the latest release information
+function Get-LatestRelease {
+    $releaseUrl = "$apiBaseUrl/releases/latest"
+    $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{
+        "Accept" = "application/vnd.github.v3+json"
+        "User-Agent" = "PowerShell-HayabusaInstaller"
+    }
+    return $release
+}
 
-# Extract Hayabusa to a folder on the Desktop
-$hayabusaExtractPath = "$desktopPath\Hayabusa"
-Expand-Archive -LiteralPath $hayabusaPath -DestinationPath $hayabusaExtractPath -Force
+# Function to get the appropriate asset for Windows 64-bit
+function Get-WindowsAsset($assets) {
+    return $assets | Where-Object { 
+        $_.name -like "*win-x64.zip" -and 
+        $_.name -notlike "*embedded-config*" 
+    } | Select-Object -First 1
+}
 
-# Cleanup the downloaded .zip file
-Remove-Item -Path $hayabusaPath -Force
+# Main execution
+try {
+    # Get the latest release
+    $latestRelease = Get-LatestRelease
+    $asset = Get-WindowsAsset $latestRelease.assets
 
-# Navigate to Hayabusa directory and run update-rules
-Push-Location -Path $hayabusaExtractPath
-Start-Process -FilePath "$hayabusaExtractPath\hayabusa-2.12.0-win-x64.exe" -ArgumentList "update-rules" -Wait
-Pop-Location
+    if (-not $asset) {
+        throw "Could not find appropriate Windows 64-bit release asset."
+    }
 
-Write-Output "Hayabusa installation and rules update completed."
+    # Define Hayabusa download URL and local path
+    $hayabusaUrl = $asset.browser_download_url
+    $hayabusaFileName = $asset.name
+    $hayabusaPath = Join-Path -Path $desktopPath -ChildPath $hayabusaFileName
+    $hayabusaExtractPath = Join-Path -Path $desktopPath -ChildPath ([System.IO.Path]::GetFileNameWithoutExtension($hayabusaFileName))
+
+    # Download Hayabusa
+    Write-Host "Downloading Hayabusa..."
+    Invoke-WebRequest -Uri $hayabusaUrl -OutFile $hayabusaPath
+
+    # Extract Hayabusa
+    Write-Host "Extracting Hayabusa..."
+    Expand-Archive -LiteralPath $hayabusaPath -DestinationPath $hayabusaExtractPath -Force
+
+    # Cleanup the downloaded .zip file
+    Remove-Item -Path $hayabusaPath -Force
+
+    # Find the Hayabusa executable
+    $hayabusaExe = Get-ChildItem -Path $hayabusaExtractPath -Filter "hayabusa*.exe" | Select-Object -First 1
+
+    if (-not $hayabusaExe) {
+        throw "Could not find Hayabusa executable in the extracted folder."
+    }
+
+    # Update rules
+    Write-Host "Updating Hayabusa rules..."
+    Push-Location -Path $hayabusaExtractPath
+    $updateProcess = Start-Process -FilePath $hayabusaExe.FullName -ArgumentList "update-rules" -Wait -PassThru -NoNewWindow
+    if ($updateProcess.ExitCode -ne 0) {
+        throw "Failed to update Hayabusa rules. Exit code: $($updateProcess.ExitCode)"
+    }
+    Pop-Location
+
+    Write-Host "Hayabusa installation and rules update completed successfully." -ForegroundColor Green
+    Write-Host "Installed to: $hayabusaExtractPath"
+}
+catch {
+    Write-Host "An error occurred: $_" -ForegroundColor Red
+}
+finally {
+    if (Test-Path -Path $hayabusaPath) {
+        Remove-Item -Path $hayabusaPath -Force
+    }
+}
